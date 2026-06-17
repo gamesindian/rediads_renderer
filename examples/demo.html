@@ -3,112 +3,167 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Rediads Outstream Renderer Demo</title>
-    <style>
-      :root {
-        color-scheme: light dark;
-        font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      }
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <title>Rediads Renderer Integration Example</title>
 
-      body {
-        margin: 0;
-        background: #f3f5f9;
-        color: #111827;
-      }
-
-      main {
-        max-width: 920px;
-        margin: 0 auto;
-        padding: 32px 20px 64px;
-      }
-
-      h1 {
-        margin: 0 0 8px;
-        font-size: 1.75rem;
-      }
-
-      p {
-        line-height: 1.6;
-      }
-
-      .article {
-        background: #fff;
-        border-radius: 16px;
-        padding: 24px;
-        box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
-      }
-
-      .slot {
-        margin: 24px 0;
-      }
-
-      code {
-        background: #eef2ff;
-        padding: 2px 6px;
-        border-radius: 6px;
-      }
-
-      button.demo-btn {
-        margin-top: 12px;
-        padding: 10px 16px;
-        border: 0;
-        border-radius: 10px;
-        background: #2563eb;
-        color: #fff;
-        font-weight: 600;
-        cursor: pointer;
-      }
-    </style>
+    <!-- Local Prebid build (includes pubmatic adapter) -->
+    <script async src="/prebid.js"></script>
+    <script async src="/rediads-renderer.umd.cjs?v=1.0.6"></script>
   </head>
   <body>
-    <main>
-      <div class="article">
-        <h1>Rediads Outstream Renderer</h1>
-        <p>
-          This demo renders a sample VAST tag through the Google IMA SDK using the
-          <code>@rediads/renderer</code> package. In production, Prebid.js passes the winning
-          bid's <code>vastUrl</code> or <code>vastXml</code> into the renderer.
-        </p>
+    <h1>Rediads Renderer Integration Example</h1>
 
-        <div id="video1" class="slot"></div>
+    <div id="ad-unit-1"></div>
 
-        <button class="demo-btn" id="replay">Replay sample ad</button>
-      </div>
-    </main>
+    <script>
+      var pbjs = window.rediads_pbjs || window.pbjs || {};
+      pbjs.que = pbjs.que || [];
 
-    <script type="module">
-      import RediadsRenderer from '../src/index.ts';
+      var SLOT_WIDTH = 300;
+      var SLOT_HEIGHT = 250;
 
-      const SAMPLE_VAST_URL =
-        'https://pubads.g.doubleclick.net/gampad/ads?iu=/21775744923/external/single_ad_samples&sz=640x480&cust_params=sample_ct%3Dlinear&ciu_szs=300x250%2C728x90&gdfp_req=1&output=vast&unviewed_position_start=1&env=vp&correlator=' +
-        Date.now();
+      // Prebid debugging default sample VAST (known-good with IMA)
+      var SAMPLE_VAST_XML =
+        '<?xml version="1.0" encoding="UTF-8"?>' +
+        '<VAST version="3.0"><Ad><InLine>' +
+        '<AdSystem>GDFP</AdSystem>' +
+        '<AdTitle>Demo</AdTitle>' +
+        '<Description><![CDATA[Demo]]></Description>' +
+        '<Creatives><Creative><Linear>' +
+        '<Duration>00:00:11</Duration>' +
+        '<VideoClicks><ClickThrough><![CDATA[https://prebid.org/]]></ClickThrough></VideoClicks>' +
+        '<MediaFiles>' +
+        '<MediaFile delivery="progressive" width="' +
+        SLOT_WIDTH +
+        '" height="' +
+        SLOT_HEIGHT +
+        '" type="video/mp4" scalable="true" maintainAspectRatio="true">' +
+        '<![CDATA[https://s3.amazonaws.com/files.prebid.org/creatives/PrebidLogo.mp4]]>' +
+        '</MediaFile></MediaFiles></Linear></Creative></Creatives>' +
+        '</InLine></Ad></VAST>';
 
-      function playDemo() {
-        RediadsRenderer.renderOutstream(
-          {
-            adUnitCode: 'video1',
-            adId: `demo-${Date.now()}`,
-            vastUrl: SAMPLE_VAST_URL,
-            width: 640,
-            height: 360,
-            mediaType: 'video',
-          },
-          document.getElementById('video1'),
-          {
-            adText: 'Advertisement',
-            autoplay: 'viewable',
-            muted: true,
-            showControls: true,
-            showCloseButton: true,
-            onEvent: (event) => {
-              console.log('[Rediads]', event.type, event);
-            },
+      var rendererConfig = {
+        adText: 'Advertisement',
+        autoplay: true,
+        muted: true,
+        showControls: true,
+        showCloseButton: true,
+        onEvent: function (event) {
+          console.log('[Rediads]', event.type, event);
+        },
+      };
+
+      function ensureVastBid(bid) {
+        var next = Object.assign({}, bid);
+        if (!next.vastUrl && !next.vastXml) {
+          if (next.ad && String(next.ad).indexOf('<VAST') === 0) {
+            next.vastXml = next.ad;
+          } else {
+            next.vastXml = SAMPLE_VAST_XML;
           }
-        );
+        }
+        return next;
       }
 
-      playDemo();
-      document.getElementById('replay').addEventListener('click', playDemo);
+      var adUnit = {
+        code: 'ad-unit-1',
+        mediaTypes: {
+          video: {
+            context: 'outstream',
+            playerSize: [SLOT_WIDTH, SLOT_HEIGHT],
+            mimes: ['video/mp4', 'video/webm', 'video/ogg'],
+            protocols: [2, 3, 5, 6, 7, 8],
+            api: [2],
+          },
+        },
+        bids: [
+          {
+            bidder: 'pubmatic',
+            params: {
+              publisherId: '162837',
+            },
+          },
+          {
+            bidder: 'michao',
+            params: {
+              placement: 'inbanner',
+              site: 1,
+              test: true,
+            },
+          },
+        ],
+        renderer: {
+          url: '/rediads-renderer.umd.cjs?v=1.0.6',
+          requiresVastUrl: false,
+          render: function (bid) {
+            if (!window.rediads) {
+              console.error('[Rediads] Renderer not loaded yet');
+              return;
+            }
+            var vastBid = ensureVastBid(bid);
+            console.log('[demo] render bid', {
+              mediaType: vastBid.mediaType,
+              hasVastUrl: !!vastBid.vastUrl,
+              hasVastXml: !!vastBid.vastXml,
+            });
+            window.rediads.renderOutstream(
+              vastBid,
+              document.getElementById('ad-unit-1'),
+              rendererConfig
+            );
+          },
+        },
+      };
+
+      pbjs.que.push(function () {
+        pbjs.setConfig({
+          cache: {
+            useLocal: true,
+            allowVastXmlOnly: true,
+          },
+          debugging: {
+            enabled: true,
+            intercept: [
+              {
+                when: {
+                  bidder: 'pubmatic',
+                },
+                then: {
+                  cpm: 12,
+                  mediaType: 'video',
+                  width: SLOT_WIDTH,
+                  height: SLOT_HEIGHT,
+                  vastXml: SAMPLE_VAST_XML,
+                },
+              },
+              {
+                when: {
+                  bidder: 'michao',
+                },
+                then: {
+                  cpm: 10,
+                  mediaType: 'video',
+                  width: SLOT_WIDTH,
+                  height: SLOT_HEIGHT,
+                  vastXml: SAMPLE_VAST_XML,
+                },
+              },
+            ],
+          },
+        });
+        pbjs.addAdUnits(adUnit);
+        pbjs.requestBids({
+          timeout: 5000,
+          bidsBackHandler: function () {
+            const highestCpmBids = pbjs.getHighestCpmBids('ad-unit-1');
+            if (!highestCpmBids[0]?.adId) {
+              console.warn('[demo] No winning bid');
+              return;
+            }
+            pbjs.renderAd(document, highestCpmBids[0].adId);
+          },
+        });
+      });
     </script>
   </body>
 </html>

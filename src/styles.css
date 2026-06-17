@@ -1,6 +1,5 @@
 .rediads-outstream-slot {
-  width: 100%;
-  max-width: var(--rediads-width, 640px);
+  width: min(100%, var(--rediads-width, 640px));
   margin: 0 auto;
   min-height: var(--rediads-height, 360px);
 }
@@ -18,9 +17,9 @@
   --rediads-shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
 
   position: relative;
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  max-height: var(--rediads-height, 360px);
+  width: var(--rediads-width, 640px);
+  height: var(--rediads-height, 360px);
+  max-width: 100%;
   border-radius: 14px;
   overflow: hidden;
   background:
@@ -190,9 +189,18 @@
 .rediads-outstream__error {
   position: absolute;
   inset: 0;
+  padding: 24px;
+}
+
+.rediads-outstream__loader:not([hidden]),
+.rediads-outstream__error:not([hidden]) {
   display: grid;
   place-items: center;
-  padding: 24px;
+}
+
+.rediads-outstream__loader[hidden],
+.rediads-outstream__error[hidden] {
+  display: none !important;
 }
 
 .rediads-outstream__loader {

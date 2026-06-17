@@ -164,6 +164,15 @@ export function setLoading(chrome: PlayerChrome, loading: boolean): void {
   chrome.root.classList.toggle('rediads-outstream--loading', loading);
 }
 
+export function clearError(chrome: PlayerChrome): void {
+  chrome.errorPanel.hidden = true;
+  chrome.root.classList.remove('rediads-outstream--error');
+  const text = chrome.errorPanel.querySelector('.rediads-outstream__error-text');
+  if (text) {
+    text.textContent = 'Unable to load video ad.';
+  }
+}
+
 export function showError(chrome: PlayerChrome, message: string): void {
   chrome.errorPanel.hidden = false;
   const text = chrome.errorPanel.querySelector('.rediads-outstream__error-text');

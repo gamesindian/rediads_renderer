@@ -1,4 +1,5 @@
 import type {
+  ImaAdDisplayContainer,
   ImaAdErrorEvent,
   ImaAdStartedEvent,
   ImaAdsLoader,
@@ -7,6 +8,7 @@ import type {
 } from './global';
 import {
   buildPlayerChrome,
+  clearError,
   setLoading,
   setMutedState,
   setPlayingState,
@@ -18,8 +20,10 @@ import {
   createUniqueId,
   emitEvent,
   loadImaSdk,
+  normalizeVastFromBid,
   resolveContainer,
   resolveDimensions,
+  resolveVastForIma,
   waitForViewability,
 } from './utils';
 import type { OutstreamPlayer, PrebidBid, RediadsRendererConfig, RendererEventType } from './types';
@@ -47,14 +51,46 @@ function getIma() {
   return ima;
 }
 
+function getAdEventTypes(ima: ReturnType<typeof getIma>) {
+  // IMA SDK v3+ nests constants under AdEvent.Type
+  return ima.AdEvent.Type ?? (ima.AdEvent as typeof ima.AdEvent.Type);
+}
+
+function getImaEventName(
+  eventGroup: Record<string, unknown>,
+  key: string,
+  fallback: string
+): string {
+  const typed = eventGroup as { Type?: Record<string, string> };
+  const fromType = typed.Type?.[key];
+  const direct = eventGroup[key];
+  if (typeof fromType === 'string') return fromType;
+  if (typeof direct === 'string') return direct;
+  return fallback;
+}
+
+function getImaErrorMessage(event: unknown, fallback: string): string {
+  try {
+    const errEvent = event as ImaAdErrorEvent;
+    const err = typeof errEvent.getError === 'function' ? errEvent.getError() : null;
+    const message = err?.getMessage?.();
+    if (message) return message;
+  } catch {
+    // Fall through to fallback.
+  }
+  return fallback;
+}
+
 export function renderOutstream(
   bid: PrebidBid,
   container?: HTMLElement | null,
   config: RediadsRendererConfig = {},
   doc: Document = document
 ): OutstreamPlayer {
+  const renderDoc = doc instanceof Document ? doc : document;
   const mergedConfig = { ...DEFAULT_CONFIG, ...config };
-  const target = container ?? resolveContainer(bid.adUnitCode, doc);
+  bid = normalizeVastFromBid(bid);
+  const target = container ?? resolveContainer(bid.adUnitCode, renderDoc);
 
   if (!target) {
     throw new Error(
@@ -72,11 +108,13 @@ export function renderOutstream(
 
   let destroyed = false;
   let adsLoader: ImaAdsLoader | null = null;
+  let adDisplayContainer: ImaAdDisplayContainer | null = null;
   let adsManager: ImaAdsManager | null = null;
   let started = false;
   let duration = 0;
   let progressTimer: number | null = null;
   let skipTimer: number | null = null;
+  let loadTimer: number | null = null;
   let resizeObserver: ResizeObserver | null = null;
 
   const fire = (
@@ -98,6 +136,10 @@ export function renderOutstream(
       window.clearInterval(skipTimer);
       skipTimer = null;
     }
+    if (loadTimer != null) {
+      window.clearTimeout(loadTimer);
+      loadTimer = null;
+    }
     resizeObserver?.disconnect();
     resizeObserver = null;
 
@@ -107,6 +149,13 @@ export function renderOutstream(
       // ignore destroy errors
     }
     adsManager = null;
+
+    try {
+      adDisplayContainer?.destroy();
+    } catch {
+      // ignore destroy errors
+    }
+    adDisplayContainer = null;
 
     try {
       adsLoader?.destroy();
@@ -137,10 +186,19 @@ export function renderOutstream(
 
   const startPlayback = () => {
     if (started || !adsManager) return;
-    started = true;
-    adsManager.start();
-    setPlayingState(chrome, true);
-    fire('start');
+    try {
+      started = true;
+      adsManager.start();
+      setPlayingState(chrome, true);
+      fire('start');
+    } catch (error) {
+      started = false;
+      const message =
+        error instanceof Error ? error.message : 'Failed to start ad playback';
+      showError(chrome, message);
+      fire('error', { message });
+      cleanup();
+    }
   };
 
   const bindControls = () => {
@@ -224,8 +282,14 @@ export function renderOutstream(
   };
 
   const onAdsManagerLoaded = (manager: ImaAdsManager) => {
+    if (loadTimer != null) {
+      window.clearTimeout(loadTimer);
+      loadTimer = null;
+    }
     const ima = getIma();
+    const adEventTypes = getAdEventTypes(ima);
     adsManager = manager;
+    clearError(chrome);
     setLoading(chrome, false);
     fire('loaded');
 
@@ -234,23 +298,27 @@ export function renderOutstream(
     adsManager.setVolume(mergedConfig.muted ? 0 : 1);
 
     const adEvents: Array<[string, RendererEventType]> = [
-      [ima.AdEvent.IMPRESSION, 'impression'],
-      [ima.AdEvent.FIRST_QUARTILE, 'firstQuartile'],
-      [ima.AdEvent.MIDPOINT, 'midpoint'],
-      [ima.AdEvent.THIRD_QUARTILE, 'thirdQuartile'],
-      [ima.AdEvent.COMPLETE, 'complete'],
-      [ima.AdEvent.PAUSED, 'pause'],
-      [ima.AdEvent.RESUMED, 'resume'],
-      [ima.AdEvent.SKIPPED, 'skipped'],
-      [ima.AdEvent.CLICK, 'click'],
+      [adEventTypes.IMPRESSION, 'impression'],
+      [adEventTypes.FIRST_QUARTILE, 'firstQuartile'],
+      [adEventTypes.MIDPOINT, 'midpoint'],
+      [adEventTypes.THIRD_QUARTILE, 'thirdQuartile'],
+      [adEventTypes.COMPLETE, 'complete'],
+      [adEventTypes.PAUSED, 'pause'],
+      [adEventTypes.RESUMED, 'resume'],
+      [adEventTypes.SKIPPED, 'skipped'],
+      [adEventTypes.CLICK, 'click'],
     ];
 
     adEvents.forEach(([imaEvent, eventType]) => {
-      adsManager!.addEventListener(imaEvent, () => fire(eventType));
+      if (imaEvent) {
+        adsManager!.addEventListener(imaEvent, () => fire(eventType));
+      }
     });
 
-    adsManager.addEventListener(ima.AdEvent.STARTED, (event: unknown) => {
+    adsManager.addEventListener(adEventTypes.STARTED, (event: unknown) => {
       const adEvent = event as ImaAdStartedEvent;
+      clearError(chrome);
+      setLoading(chrome, false);
       duration = adEvent.getAd()?.getDuration?.() ?? 0;
       setPlayingState(chrome, true);
       trackProgress();
@@ -267,20 +335,22 @@ export function renderOutstream(
       }
     });
 
-    adsManager.addEventListener(ima.AdEvent.ALL_ADS_COMPLETED, () => {
+    adsManager.addEventListener(adEventTypes.ALL_ADS_COMPLETED, () => {
       setPlayingState(chrome, false);
       fire('complete');
       cleanup();
       target.classList.add('rediads-outstream-slot--completed');
     });
 
-    adsManager.addEventListener(ima.AdErrorEvent.Type, (event: unknown) => {
-      const adError = (event as ImaAdErrorEvent).getError();
-      const message = adError?.getMessage?.() ?? 'Ad playback error';
+    adsManager.addEventListener(
+      getImaEventName(ima.AdErrorEvent, 'AD_ERROR', 'adError'),
+      (event: unknown) => {
+      const message = getImaErrorMessage(event, 'Ad playback error');
       showError(chrome, message);
-      fire('error', { message, data: { code: adError?.getErrorCode?.() } });
+      fire('error', { message });
       cleanup();
-    });
+    }
+    );
 
     const maybeAutoplay = async () => {
       if (mergedConfig.autoplay === false) {
@@ -300,7 +370,7 @@ export function renderOutstream(
     void maybeAutoplay();
   };
 
-  const requestAds = () => {
+  const requestAds = async () => {
     const ima = getIma();
     const { width, height } = resolveDimensions(bid, target);
     const request = new ima.AdsRequest();
@@ -313,26 +383,61 @@ export function renderOutstream(
     request.setAdWillAutoPlay?.(mergedConfig.autoplay !== false);
     request.setAdWillPlayMuted?.(mergedConfig.muted);
 
-    if (bid.vastXml) {
-      request.setAdsResponse?.(bid.vastXml);
-    } else if (bid.vastUrl) {
-      request.adTagUrl = bid.vastUrl;
+    try {
+      const vast = await resolveVastForIma(bid);
+      if (vast.adTagUrl) {
+        request.adTagUrl = vast.adTagUrl;
+      } else if (vast.adsResponse) {
+        request.adsResponse = vast.adsResponse;
+      } else {
+        throw new Error('[Rediads Renderer] No VAST payload resolved for IMA request.');
+      }
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Failed to resolve VAST for ad request';
+      showError(chrome, message);
+      fire('error', { message });
+      cleanup();
+      return;
     }
 
-    adsLoader = new ima.AdsLoader(chrome.adContainer);
+    adDisplayContainer = new ima.AdDisplayContainer(chrome.adContainer, chrome.video);
+    adDisplayContainer.initialize();
+    adsLoader = new ima.AdsLoader(adDisplayContainer);
 
-    adsLoader.addEventListener('adsManagerLoaded', (event: unknown) => {
+    adsLoader.addEventListener(
+      getImaEventName(ima.AdsManagerLoadedEvent, 'ADS_MANAGER_LOADED', 'adsManagerLoaded'),
+      (event: unknown) => {
       const loadedEvent = event as ImaAdsManagerLoadedEvent;
-      onAdsManagerLoaded(loadedEvent.getAdsManager(chrome.video));
-    });
+      const settings = new ima.AdsRenderingSettings();
+      const manager = loadedEvent.getAdsManager(chrome.video, settings);
+      if (!manager) {
+        showError(chrome, 'Failed to create IMA ads manager.');
+        fire('error', { message: 'Failed to create IMA ads manager.' });
+        cleanup();
+        return;
+      }
+      onAdsManagerLoaded(manager);
+    }
+    );
 
-    adsLoader.addEventListener(ima.AdErrorEvent.Type, (event: unknown) => {
-      const adError = (event as ImaAdErrorEvent).getError();
-      const message = adError?.getMessage?.() ?? 'Failed to request ads';
+    adsLoader.addEventListener(
+      getImaEventName(ima.AdErrorEvent, 'AD_ERROR', 'adError'),
+      (event: unknown) => {
+      const message = getImaErrorMessage(event, 'Failed to request ads');
       showError(chrome, message);
-      fire('error', { message, data: { code: adError?.getErrorCode?.() } });
+      fire('error', { message });
       cleanup();
-    });
+    }
+    );
+
+    loadTimer = window.setTimeout(() => {
+      if (!destroyed && !adsManager) {
+        showError(chrome, 'Ad request timed out. Check VAST URL/XML and network.');
+        fire('error', { message: 'Ad request timed out' });
+        cleanup();
+      }
+    }, 15000);
 
     adsLoader.requestAds(request);
   };
@@ -346,7 +451,7 @@ export function renderOutstream(
     try {
       await loadImaSdk(mergedConfig.imaSdkUrl);
       if (destroyed) return;
-      requestAds();
+      await requestAds();
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Failed to initialize IMA SDK';

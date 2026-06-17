@@ -23,31 +23,52 @@ declare global {
 export interface GoogleIma {
   ima: {
     AdEvent: {
-      LOADED: string;
-      STARTED: string;
-      IMPRESSION: string;
-      FIRST_QUARTILE: string;
-      MIDPOINT: string;
-      THIRD_QUARTILE: string;
-      COMPLETE: string;
-      PAUSED: string;
-      RESUMED: string;
-      SKIPPED: string;
-      CLICK: string;
-      ALL_ADS_COMPLETED: string;
-      AD_ERROR: string;
+      Type: {
+        LOADED: string;
+        STARTED: string;
+        IMPRESSION: string;
+        FIRST_QUARTILE: string;
+        MIDPOINT: string;
+        THIRD_QUARTILE: string;
+        COMPLETE: string;
+        PAUSED: string;
+        RESUMED: string;
+        SKIPPED: string;
+        CLICK: string;
+        ALL_ADS_COMPLETED: string;
+        AD_ERROR: string;
+      };
     };
     AdErrorEvent: {
-      Type: string;
+      Type?: Record<string, string>;
+      AD_ERROR?: string;
     };
     ViewMode: {
       NORMAL: string;
       FULLSCREEN: string;
     };
-    AdsLoader: new (container: HTMLElement) => ImaAdsLoader;
+    AdsLoader: new (container: ImaAdDisplayContainer) => ImaAdsLoader;
+    AdDisplayContainer: new (
+      container: HTMLElement,
+      video?: HTMLVideoElement
+    ) => ImaAdDisplayContainer;
     AdsRequest: new () => ImaAdsRequest;
     AdsManager: ImaAdsManager;
+    AdsRenderingSettings: new () => ImaAdsRenderingSettings;
+    AdsManagerLoadedEvent: {
+      Type?: Record<string, string>;
+      ADS_MANAGER_LOADED?: string;
+    };
   };
+}
+
+export interface ImaAdDisplayContainer {
+  initialize(): void;
+  destroy(): void;
+}
+
+export interface ImaAdsRenderingSettings {
+  loadVideoTimeout?: number;
 }
 
 export interface ImaAdsLoader {
@@ -60,13 +81,13 @@ export interface ImaAdsLoader {
 
 export interface ImaAdsRequest {
   adTagUrl?: string;
+  adsResponse?: string;
   linearAdSlotWidth?: number;
   linearAdSlotHeight?: number;
   nonLinearAdSlotWidth?: number;
   nonLinearAdSlotHeight?: number;
   setAdWillAutoPlay?(willAutoPlay: boolean): void;
   setAdWillPlayMuted?(willPlayMuted: boolean): void;
-  setAdsResponse?(response: string): void;
 }
 
 export interface ImaAdsManager {
@@ -105,5 +126,8 @@ export interface ImaAdStartedEvent {
 }
 
 export interface ImaAdsManagerLoadedEvent {
-  getAdsManager(video: HTMLVideoElement): ImaAdsManager;
+  getAdsManager(
+    video: HTMLVideoElement,
+    settings?: ImaAdsRenderingSettings
+  ): ImaAdsManager;
 }

@@ -10,6 +10,7 @@ export interface PrebidBid {
   mediaType?: string;
   cpm?: number;
   ad?: string;
+  adm?: string;
   adUrl?: string;
 }
 

@@ -1,4 +1,4 @@
-import type { RediadsRendererConfig, RendererEvent } from './types';
+import type { PrebidBid, RediadsRendererConfig, RendererEvent } from './types';
 
 export const DEFAULT_IMA_SDK_URL =
   'https://imasdk.googleapis.com/js/sdkloader/ima3.js';
@@ -84,6 +84,64 @@ export function createUniqueId(prefix: string, seed?: string): string {
   const safeSeed = seed?.replace(/[^a-zA-Z0-9_-]/g, '') || '';
   const suffix = safeSeed || `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
   return `${prefix}-${suffix}`;
+}
+
+export function normalizeVastFromBid(bid: PrebidBid): PrebidBid {
+  const extended = bid as PrebidBid & {
+    adm?: string;
+    vastContent?: string;
+  };
+
+  const vastXml =
+    bid.vastXml ||
+    [extended.ad, extended.adm, extended.vastContent].find(
+      (value) => typeof value === 'string' && value.trimStart().startsWith('<VAST')
+    );
+
+  const vastUrl =
+    typeof bid.vastUrl === 'string' && bid.vastUrl.length > 0 ? bid.vastUrl : undefined;
+
+  if (vastXml || vastUrl) {
+    return {
+      ...bid,
+      ...(vastXml ? { vastXml: String(vastXml) } : {}),
+      ...(vastUrl ? { vastUrl } : {}),
+    };
+  }
+
+  return bid;
+}
+
+export interface ImaVastPayload {
+  adTagUrl?: string;
+  adsResponse?: string;
+}
+
+/**
+ * Resolves Prebid video bid fields into IMA AdsRequest-compatible VAST input.
+ * Blob/data vastUrl values (Prebid local cache) must be fetched as XML, not used as adTagUrl.
+ */
+export async function resolveVastForIma(bid: PrebidBid): Promise<ImaVastPayload> {
+  const normalized = normalizeVastFromBid(bid);
+
+  if (normalized.vastXml) {
+    return { adsResponse: normalized.vastXml };
+  }
+
+  const vastUrl = normalized.vastUrl;
+  if (!vastUrl) {
+    throw new Error('[Rediads Renderer] Bid is missing both vastUrl and vastXml.');
+  }
+
+  if (vastUrl.startsWith('blob:') || vastUrl.startsWith('data:')) {
+    const response = await fetch(vastUrl);
+    if (!response.ok) {
+      throw new Error(`Failed to read cached VAST from ${vastUrl}`);
+    }
+    return { adsResponse: await response.text() };
+  }
+
+  return { adTagUrl: vastUrl };
 }
 
 export function waitForViewability(
