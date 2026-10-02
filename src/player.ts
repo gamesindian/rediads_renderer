@@ -109,7 +109,6 @@ export function renderOutstream(
   let destroyed = false;
   let adDisplayContainer: ImaAdDisplayContainer | null = null;
   let adsLoader: ImaAdsLoader | null = null;
-  let adDisplayContainer: ImaAdDisplayContainer | null = null;
   let adsManager: ImaAdsManager | null = null;
   let started = false;
   let duration = 0;
@@ -164,13 +163,6 @@ export function renderOutstream(
       // ignore destroy errors
     }
     adsLoader = null;
-
-    try {
-      adDisplayContainer?.destroy();
-    } catch {
-      // ignore destroy errors
-    }
-    adDisplayContainer = null;
 
     chrome.video.src = '';
     chrome.video.load();
