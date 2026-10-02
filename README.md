@@ -2,6 +2,8 @@
 
 Prebid.js outstream video renderer powered by the [Google IMA SDK](https://developers.google.com/interactive-media-ads/docs/sdks/html5/client-side), with a polished player UI designed for publisher pages.
 
+**Repository:** [github.com/gamesindian/rediads_renderer](https://github.com/gamesindian/rediads_renderer)
+
 ## Publisher quick start (minimum effort)
 
 **3 steps.** One script file — no separate CSS, no IMA setup, no renderer wiring.

@@ -38,7 +38,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/rediads/renderer.git"
+    "url": "https://github.com/gamesindian/rediads_renderer.git"
   },
   "devDependencies": {
     "typescript": "^5.8.3",
