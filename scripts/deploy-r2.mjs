@@ -148,8 +148,12 @@ const purgeResponse = await fetch(
 
 const purgeResult = await purgeResponse.json();
 if (!purgeResponse.ok || !purgeResult.success) {
-  console.error('Cache purge failed:', JSON.stringify(purgeResult));
-  process.exit(1);
+  console.warn('Cache purge failed (R2 upload succeeded):', JSON.stringify(purgeResult));
+  console.warn(
+    'Fix CLOUDFLARE_API_TOKEN (Cache Purge) or set CLOUDFLARE_AUTH_EMAIL with a Global API Key.',
+  );
+} else {
+  console.log('CDN cache purged.');
 }
 
 console.log('Deploy complete.');
