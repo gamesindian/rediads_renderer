@@ -10,11 +10,25 @@ export interface RediadsRendererApi {
   autoInitFromScript: typeof import('./bootstrap').autoInitFromScript;
 }
 
+export interface RediAdsNativeApi {
+  version: string;
+  sizes: string[];
+  render: (input: unknown, opts?: Record<string, unknown>) => string;
+  normalize: (input: unknown, ortbArg?: unknown) => Record<string, string>;
+  pick: (w: number, h: number) => [number, number];
+  page: (assets: unknown, opts?: Record<string, unknown>) => string;
+}
+
 declare global {
   interface Window {
     RediadsRenderer?: RediadsRendererApi;
     /** Publisher-friendly global alias */
     rediads?: RediadsRendererApi;
+    /** Prebid native rendererUrl contract (defined by rediads-native-renderer.js only). */
+    renderAd?: (assets: unknown, ortb?: unknown) => string;
+    RediAdsNative?: RediAdsNativeApi;
+    /** Force native layout size in tests: e.g. `728x90` */
+    rediadsSize?: string;
     google?: GoogleIma;
     pbRenderInFrame?: (payload: import('./types').SafeRendererPayload) => void;
   }

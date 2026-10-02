@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Rediads Native Renderer Demo</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 32px;
+        font-family: system-ui, sans-serif;
+        background: #0e1013;
+        color: #f2f3f4;
+      }
+      h1 {
+        margin: 0 0 8px;
+        font-size: 1.5rem;
+      }
+      p {
+        color: #8a9099;
+        max-width: 640px;
+        line-height: 1.5;
+      }
+      .grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 24px;
+        margin-top: 32px;
+        align-items: flex-start;
+      }
+      .cell {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .cell span {
+        font-size: 11px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #8a9099;
+      }
+      iframe {
+        border: 0;
+        display: block;
+        background: #fff;
+      }
+    </style>
+    <script src="/rediads-native-renderer.js"></script>
+  </head>
+  <body>
+    <h1>Rediads Native Renderer</h1>
+    <p>
+      One native imp, twelve display layouts. Prebid loads
+      <code>dist/rediads-native-renderer.js</code> via
+      <code>mediaTypes.native.rendererUrl</code>; GAM picks the slot size and
+      <code>window.renderAd(assets)</code> adapts the markup.
+    </p>
+
+    <div class="grid" id="grid"></div>
+
+    <script>
+      var sizes = [
+        ['300x250', 300, 250],
+        ['320x50', 320, 50],
+        ['728x90', 728, 90],
+        ['970x250', 970, 250],
+        ['160x600', 160, 600],
+      ];
+
+      var sampleAssets = [
+        { key: 'title', value: 'Adaptive noise cancelling in a matchbox-sized case.' },
+        {
+          key: 'image',
+          value: {
+            url: 'https://vcdn.adnxs.com/p/creative-image/27/c0/52/67/27c05267-5a6d-4874-834e-18e218493c32.png',
+            width: 1200,
+            height: 627,
+          },
+        },
+        { key: 'clickUrl', value: 'https://prebid.org/' },
+        { key: 'sponsoredBy', value: 'RediAds' },
+        { key: 'cta', value: 'Learn more' },
+        { key: 'body', value: 'Studio-grade sound tuned by ear, not by algorithm.' },
+        { key: 'privacyLink', value: 'https://example.com/adchoices' },
+      ];
+
+      var grid = document.getElementById('grid');
+      var R = window.RediAdsNative;
+
+      sizes.forEach(function (entry) {
+        var label = entry[0];
+        var w = entry[1];
+        var h = entry[2];
+        var cell = document.createElement('div');
+        cell.className = 'cell';
+        cell.innerHTML = '<span>' + label + '</span>';
+        var iframe = document.createElement('iframe');
+        iframe.width = w;
+        iframe.height = h;
+        iframe.title = label;
+        iframe.srcdoc = R.page(sampleAssets, { w: w, h: h });
+        cell.appendChild(iframe);
+        grid.appendChild(cell);
+      });
+    </script>
+  </body>
+</html>

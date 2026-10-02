@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <title>@rediads/renderer — Prebid renderer integration</title>
+
+    <!-- required scripts -->
+    <script async src="//cdn.jsdelivr.net/npm/prebid.js@latest/dist/not-for-prod/prebid.js"></script>
+    <script async src="https://securepubads.g.doubleclick.net/tag/js/gpt.js"></script>
+
+    <!-- Rediads renderer (UMD). In production use the published CDN build, e.g.
+         https://cdn.rediads.com/helper/rediads-renderer.umd.cjs
+         Here we load the local source so the example runs against the dev build. -->
+    <script type="module">
+      import '../src/index.ts';
+    </script>
+  </head>
+  <body>
+    <h1>@rediads/renderer — Prebid renderer integration</h1>
+    <p>
+      Mirrors the <code>in-renderer-js</code> integration pattern: Prebid calls the ad unit's
+      <code>renderer.render(bid)</code>, which hands the winning bid to
+      <code>window.RediadsRenderer.renderOutstream()</code>.
+    </p>
+
+    <div id="ad-unit-1"></div>
+
+    <script>
+      var pbjs = pbjs || {};
+      pbjs.que = pbjs.que || [];
+
+      var adUnit = {
+        code: 'ad-unit-1',
+        mediaTypes: {
+          video: {
+            context: 'outstream',
+            playerSize: [640, 360],
+            mimes: ['video/mp4', 'video/webm', 'video/ogg'],
+            protocols: [2, 3, 5, 6, 7, 8],
+            api: [2],
+          },
+        },
+        bids: [
+          {
+            bidder: 'michao',
+            params: { placement: 'inbanner', site: 1, test: true },
+          },
+        ],
+        // === The integration point (same shape as in-renderer-js) ===
+        // In production, set `url` to the published CDN build and Prebid will
+        // load it for you before calling `render`:
+        //   url: 'https://cdn.rediads.com/helper/rediads-renderer.umd.cjs',
+        // This example already loads the renderer via the module <script> in the
+        // <head>, so we omit `url` and let Prebid call `render` directly.
+        renderer: {
+          render: function (bid) {
+            window.RediadsRenderer.renderOutstream(
+              bid,
+              document.getElementById(bid.adUnitCode),
+              { autoplay: 'viewable', muted: true }
+            );
+          },
+        },
+      };
+
+      pbjs.que.push(function () {
+        pbjs.setConfig({
+          debugging: {
+            enabled: true,
+            intercept: [
+              {
+                when: { bidder: 'michao' },
+                then: {
+                  cpm: 10,
+                  mediaType: 'video',
+                  // Provide a real VAST so the renderer has something to play.
+                  vastUrl:
+                    'https://pubads.g.doubleclick.net/gampad/ads?iu=/21775744923/external/single_ad_samples&sz=640x480&cust_params=sample_ct%3Dlinear&ciu_szs=300x250%2C728x90&gdfp_req=1&output=vast&unviewed_position_start=1&env=vp&correlator=',
+                },
+              },
+            ],
+          },
+        });
+
+        pbjs.addAdUnits(adUnit);
+        pbjs.requestBids({
+          timeout: 5000,
+          bidsBackHandler: function () {
+            var highestCpmBids = pbjs.getHighestCpmBids('ad-unit-1');
+            if (highestCpmBids[0]) {
+              pbjs.renderAd(document, highestCpmBids[0].adId);
+            }
+          },
+        });
+      });
+    </script>
+  </body>
+</html>

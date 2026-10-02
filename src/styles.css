@@ -180,6 +180,37 @@
   font-weight: 600;
 }
 
+.rediads-outstream__logo {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 3px;
+  border-radius: 6px;
+  opacity: 0.7;
+  /* glass small */
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  pointer-events: auto;
+  cursor: pointer;
+  transition: opacity 160ms ease, background 160ms ease;
+}
+
+.rediads-outstream__logo:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.rediads-outstream__logo svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
 .rediads-outstream__skip:disabled {
   opacity: 0.72;
   cursor: default;
@@ -201,6 +232,13 @@
 .rediads-outstream__loader[hidden],
 .rediads-outstream__error[hidden] {
   display: none !important;
+}
+
+/* The `display` rules above override the UA `[hidden] { display: none }`
+   default, so re-assert hiding explicitly when the attribute is set. */
+.rediads-outstream__loader[hidden],
+.rediads-outstream__error[hidden] {
+  display: none;
 }
 
 .rediads-outstream__loader {

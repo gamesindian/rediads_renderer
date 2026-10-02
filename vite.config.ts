@@ -11,6 +11,7 @@ export default defineConfig(({ command }) => ({
     }),
   ],
   build: {
+    emptyOutDir: true,
     lib: {
       entry: resolve(__dirname, 'src/index.ts'),
       name: 'RediadsRenderer',

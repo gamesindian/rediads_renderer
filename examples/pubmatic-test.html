@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <title>Rediads Renderer — PubMatic outstream test</title>
+
+    <!-- Ensure PubMatic test mode: the adapter returns a test creative when the
+         PAGE url contains pubmaticTest=true. Auto-append it if missing. -->
+    <script>
+      if (!/[?&]pubmaticTest=true/.test(location.search)) {
+        location.search +=
+          (location.search ? '&' : '?') + 'pubmaticTest=true';
+      }
+    </script>
+
+    <!-- required scripts -->
+    <script async src="//cdn.jsdelivr.net/npm/prebid.js@latest/dist/not-for-prod/prebid.js"></script>
+    <script async src="https://securepubads.g.doubleclick.net/tag/js/gpt.js"></script>
+  </head>
+  <body>
+    <h1>PubMatic outstream → Rediads renderer</h1>
+    <div id="ad-unit-1"></div>
+    <pre id="log" style="background:#0b1020;color:#c7d2fe;padding:12px;border-radius:8px;font-size:12px;max-height:260px;overflow:auto;"></pre>
+
+    <script>
+      var pbjs = pbjs || {};
+      pbjs.que = pbjs.que || [];
+
+      function log() {
+        var line = Array.prototype.slice
+          .call(arguments)
+          .map(function (a) {
+            return typeof a === 'object' ? JSON.stringify(a) : String(a);
+          })
+          .join(' ');
+        document.getElementById('log').textContent += line + '\n';
+        console.log('[demo]', line);
+      }
+
+      var adUnit = {
+        code: 'ad-unit-1',
+        mediaTypes: {
+          video: {
+            context: 'outstream',
+            playerSize: [300, 250],
+            mimes: ['video/mp4', 'video/webm', 'video/ogg'],
+            protocols: [2, 3, 5, 6, 7, 8],
+            api: [2],
+          },
+        },
+        bids: [{ bidder: 'pubmatic', params: { publisherId: '150559' } }],
+        renderer: {
+          url: 'https://cdn.rediads.com/helper/rediads-renderer.umd.cjs',
+          render: function (bid) {
+            log('renderer.render() fired. vastUrl?', !!bid.vastUrl, 'vastXml?', !!bid.vastXml);
+            window.RediadsRenderer.renderOutstream(
+              bid,
+              document.getElementById(bid.adUnitCode),
+              {
+                autoplay: 'viewable',
+                muted: true,
+                onEvent: function (e) {
+                  log('player event:', e.type, e.message || '');
+                },
+              }
+            );
+          },
+        },
+      };
+
+      pbjs.que.push(function () {
+        pbjs.setConfig({ debugging: { enabled: true } });
+        pbjs.addAdUnits(adUnit);
+        pbjs.requestBids({
+          timeout: 5000,
+          bidsBackHandler: function () {
+            var bids = pbjs.getHighestCpmBids('ad-unit-1');
+            log('bids back. winners:', bids.length);
+            if (!bids.length) {
+              log('NO BID — nothing to render');
+              return;
+            }
+            var b = bids[0];
+            log('winning bid:', { bidder: b.bidder, cpm: b.cpm, mediaType: b.mediaType, hasVastUrl: !!b.vastUrl, hasVastXml: !!b.vastXml, adId: b.adId });
+            // Correct signature: renderAd(document, adId). With an outstream
+            // renderer attached, this invokes renderer.render(bid).
+            pbjs.renderAd(document, b.adId);
+          },
+        });
+      });
+    </script>
+  </body>
+</html>

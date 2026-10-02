@@ -1,6 +1,6 @@
 # @rediads/renderer
 
-Prebid.js outstream video renderer powered by the [Google IMA SDK](https://developers.google.com/interactive-media-ads/docs/sdks/html5/client-side), with a polished player UI designed for publisher pages.
+Prebid.js **outstream video** renderer (Google [IMA SDK](https://developers.google.com/interactive-media-ads/docs/sdks/html5/client-side)) plus a separate **native display** renderer bundle for `mediaTypes.native.rendererUrl`.
 
 **Repository:** [github.com/gamesindian/rediads_renderer](https://github.com/gamesindian/rediads_renderer)
 
@@ -18,7 +18,7 @@ Prebid.js outstream video renderer powered by the [Google IMA SDK](https://devel
 
 ```html
 <script async src="/path/to/prebid.js"></script>
-<script src="https://cdn.yoursite.com/rediads-renderer.umd.cjs"></script>
+<script src="https://cdn.rediads.com/helper/rediads-renderer.umd.cjs"></script>
 ```
 
 ### 3. One line of config
@@ -49,7 +49,7 @@ That's it. Rediads automatically:
 
 <script async src="/path/to/prebid.js"></script>
 <script
-  src="https://cdn.yoursite.com/rediads-renderer.umd.cjs"
+  src="https://cdn.rediads.com/helper/rediads-renderer.umd.cjs"
   data-rediads-auto='{
     "slots": [{
       "code": "video1",
@@ -108,6 +108,52 @@ pbjs.addAdUnits([{
 ```
 
 See [full API docs](#api) below.
+
+---
+
+## Native display renderer (separate bundle)
+
+Outstream video and native use **different CDN files**. Native does not load IMA or player CSS.
+
+1. Host `dist/rediads-native-renderer.js` (built with `npm run build`).
+2. Point Prebid at it:
+
+```javascript
+import { buildNativeMediaType } from '@rediads/renderer';
+
+mediaTypes: {
+  native: buildNativeMediaType('https://cdn.yoursite.com/rediads-native-renderer.js'),
+},
+```
+
+3. GAM: one third-party creative using Prebid Universal Creative `native-render.js` with `requestAllAssets: true` — see `examples/native/gam-creative.html`.
+
+Local preview: `npm run build`, symlink `dist/rediads-native-renderer.js` to `examples/public/`, then open `/native/demo.html`. Full notes in `examples/native/README.md`.
+
+Production CDN URLs (after deploy):
+
+- `https://cdn.rediads.com/helper/rediads-renderer.umd.cjs`
+- `https://cdn.rediads.com/native/v1/rediads-native-renderer.js`
+
+---
+
+## Deploy to Cloudflare R2
+
+On push to `main` (when build inputs change), GitHub Actions runs `.github/workflows/deploy-r2.yml`: `npm run build` → upload `dist/` artifacts → purge Cloudflare cache.
+
+**Repository secrets** (same as other RediAds repos, e.g. `rediwrap`):
+
+| Secret | Purpose |
+|--------|---------|
+| `R2_ACCOUNT_ID` | Cloudflare account id |
+| `R2_ACCESS_KEY_ID` | R2 API token access key |
+| `R2_SECRET_ACCESS_KEY` | R2 API token secret |
+| `R2_BUCKET` | Bucket name (e.g. `cdnrediads`) |
+| `CLOUDFLARE_ZONE_ID` | Zone for `cdn.rediads.com` |
+| `CLOUDFLARE_API_TOKEN` | Token with **Cache Purge** for that zone |
+| `CDN_BASE_URL` | Optional; default `https://cdn.rediads.com` |
+
+Local deploy: copy `.env.example` → `.env`, then `npm run build && npm run deploy`.
 
 ---
 
@@ -194,7 +240,7 @@ const renderer = createRenderer({ muted: true });
 
 ```javascript
 const safeRenderer = rediads.createSafeRenderer({
-  scriptUrl: 'https://cdn.yoursite.com/rediads-renderer.umd.cjs',
+  scriptUrl: 'https://cdn.rediads.com/helper/rediads-renderer.umd.cjs',
   autoplay: 'viewable',
   muted: true,
 });

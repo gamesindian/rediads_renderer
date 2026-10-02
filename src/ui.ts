@@ -26,13 +26,15 @@ export function buildPlayerChrome(
 ): PlayerChrome {
   container.innerHTML = '';
   container.classList.add('rediads-outstream-slot');
+  // Set the size vars on the slot so both the slot (max-width) and the player
+  // root (inherits) size to the configured dimensions.
+  container.style.setProperty('--rediads-width', `${dimensions.width}px`);
+  container.style.setProperty('--rediads-height', `${dimensions.height}px`);
 
   const root = document.createElement('div');
   root.className = ['rediads-outstream', config.className].filter(Boolean).join(' ');
-  root.style.setProperty('--rediads-width', `${dimensions.width}px`);
-  root.style.setProperty('--rediads-height', `${dimensions.height}px`);
   root.setAttribute('role', 'region');
-  root.setAttribute('aria-label', config.adText ?? 'Advertisement');
+  root.setAttribute('aria-label', config.adText ?? 'Ad');
 
   const stage = document.createElement('div');
   stage.className = 'rediads-outstream__stage';
@@ -65,7 +67,7 @@ export function buildPlayerChrome(
 
   const adLabel = document.createElement('span');
   adLabel.className = 'rediads-outstream__ad-label';
-  adLabel.textContent = config.adText ?? 'Advertisement';
+  adLabel.textContent = config.adText ?? 'Ad';
 
   const closeButton = document.createElement('button');
   closeButton.type = 'button';
@@ -112,9 +114,17 @@ export function buildPlayerChrome(
   progressFill.className = 'rediads-outstream__progress-fill';
   progressBar.append(progressFill);
 
+  const logo = document.createElement('a');
+  logo.className = 'rediads-outstream__logo';
+  logo.href = 'https://rediads.com';
+  logo.target = '_blank';
+  logo.rel = 'noopener noreferrer';
+  logo.setAttribute('aria-label', 'Ad by Rediads');
+  logo.innerHTML = logoMark();
+
   const controlGroup = document.createElement('div');
   controlGroup.className = 'rediads-outstream__control-group';
-  controlGroup.append(playButton, muteButton, timeLabel, fullscreenButton, skipButton);
+  controlGroup.append(playButton, muteButton, timeLabel, fullscreenButton, logo);
 
   controls.append(progressBar, controlGroup);
 
@@ -243,6 +253,10 @@ function muteIcon(): string {
 
 function fullscreenIcon(): string {
   return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h4V5H5v6h2V7zm10 0v4h2V5h-6v2h4zM7 17v-4H5v6h6v-2H7zm10 0h-4v2h6v-6h-2v4z"/></svg>';
+}
+
+function logoMark(): string {
+  return '<svg viewBox="0 0 74.25 74.25" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path fill="rgba(255,255,255,0.9)" d="M 28.289062 10.8125 C 28.789062 10.042969 29.644531 9.578125 30.5625 9.578125 C 35.089844 9.578125 49.011719 9.578125 57.757812 9.578125 C 59.429688 9.578125 60.996094 10.40625 61.9375 11.785156 C 62.875 13.167969 63.074219 14.925781 62.460938 16.484375 C 60.480469 21.53125 57.859375 28.191406 56.230469 32.335938 C 55.3125 34.675781 53.058594 36.210938 50.550781 36.210938 L 47.007812 36.210938 L 61.777344 58.859375 L 52.085938 58.859375 L 37.007812 36.210938 L 30.632812 45.984375 L 36.105469 45.984375 L 40.871094 53.085938 L 26.003906 53.085938 L 22.238281 58.859375 L 13.035156 58.859375 L 27.804688 36.210938 L 20.925781 36.210938 L 14.550781 45.984375 L 5.351562 45.984375 C 5.351562 45.984375 13.003906 34.246094 15.546875 30.351562 C 16.050781 29.578125 16.910156 29.109375 17.835938 29.109375 L 45.652344 29.109375 C 46.730469 29.109375 47.730469 28.566406 48.320312 27.664062 C 49.570312 25.746094 51.8125 22.3125 53.453125 19.792969 C 53.859375 19.171875 53.890625 18.382812 53.539062 17.734375 C 53.1875 17.082031 52.507812 16.679688 51.769531 16.679688 L 33.664062 16.679688 L 29.066406 23.722656 L 19.867188 23.722656 C 19.867188 23.722656 26.042969 14.253906 28.289062 10.8125 Z M 28.289062 10.8125 "/></svg>';
 }
 
 function closeIcon(): string {

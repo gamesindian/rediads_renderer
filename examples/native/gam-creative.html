@@ -1,0 +1,9 @@
+<!-- GAM: one third-party creative, attached to the line item at all 12 sizes. -->
+<script src="https://cdn.jsdelivr.net/npm/prebid-universal-creative@latest/dist/native-render.js"></script>
+<script>
+  var pbNativeTagData = {};
+  pbNativeTagData.pubUrl = "%%PATTERN:url%%";
+  pbNativeTagData.adId = "%%PATTERN:hb_adid%%";   // Send All Bids: %%PATTERN:hb_adid_BIDDERCODE%%
+  pbNativeTagData.requestAllAssets = true;        // required for rendererUrl
+  window.pbNativeTag.renderNativeAd(pbNativeTagData);
+</script>

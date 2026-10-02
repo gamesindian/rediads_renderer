@@ -17,6 +17,11 @@ export {
   type OutstreamBidder,
 } from './bootstrap';
 export { injectStyles } from './inject-styles';
+export {
+  buildNativeMediaType,
+  DEFAULT_NATIVE_ORTB,
+  NATIVE_DISPLAY_SIZES,
+} from './native-ortb';
 export type {
   OutstreamPlayer,
   PrebidBid,

@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Rediads Renderer — Prebid Demo</title>
+
+    <!-- Prebid.js (debug build) + GPT -->
+    <script async src="//cdn.jsdelivr.net/npm/prebid.js@latest/dist/not-for-prod/prebid.js"></script>
+    <script async src="https://securepubads.g.doubleclick.net/tag/js/gpt.js"></script>
+
+    <!-- Rediads renderer. In production load the published UMD build, e.g.
+         <script src="https://cdn.rediads.com/helper/rediads-renderer.umd.cjs"></script> -->
+    <script type="module">
+      import '../src/index.ts';
+    </script>
+
+    <style>
+      :root {
+        font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      }
+      body {
+        margin: 0;
+        background: #f3f5f9;
+        color: #111827;
+      }
+      main {
+        max-width: 920px;
+        margin: 0 auto;
+        padding: 32px 20px 64px;
+      }
+      h1 {
+        margin: 0 0 8px;
+        font-size: 1.75rem;
+      }
+      p {
+        line-height: 1.6;
+      }
+      .article {
+        background: #fff;
+        border-radius: 16px;
+        padding: 24px;
+        box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+      }
+      .slot {
+        margin: 24px 0;
+      }
+      code {
+        background: #eef2ff;
+        padding: 2px 6px;
+        border-radius: 6px;
+        font-size: 0.85em;
+      }
+      .row {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+      button.demo-btn {
+        padding: 10px 16px;
+        border: 0;
+        border-radius: 10px;
+        background: #2563eb;
+        color: #fff;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      .badge {
+        display: inline-block;
+        padding: 4px 10px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 600;
+        background: #ecfdf5;
+        color: #047857;
+      }
+      #log {
+        margin-top: 20px;
+        background: #0b1020;
+        color: #c7d2fe;
+        border-radius: 12px;
+        padding: 14px 16px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 12px;
+        line-height: 1.7;
+        max-height: 220px;
+        overflow: auto;
+      }
+      #log .t {
+        color: #fbbf24;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="article">
+        <h1>Rediads Renderer — Prebid Demo</h1>
+        <p>
+          This renders an outstream video ad <strong>through the real Prebid.js auction</strong>.
+          Prebid runs the auction, then calls the ad unit's
+          <code>renderer.render(bid)</code>, which hands the winning bid to
+          <code>RediadsRenderer.renderOutstream()</code>. The <code>michao</code> bid is
+          intercepted via <code>pbjs.setConfig({ debugging })</code> so the demo always wins
+          with a sample VAST.
+        </p>
+        <p><span class="badge" id="status">waiting for Prebid…</span></p>
+
+        <div id="ad-unit-1" class="slot"></div>
+
+        <div class="row">
+          <button class="demo-btn" id="rerun">Re-run auction</button>
+        </div>
+
+        <div id="log"></div>
+      </div>
+    </main>
+
+    <script>
+      var pbjs = pbjs || {};
+      pbjs.que = pbjs.que || [];
+
+      var logEl = document.getElementById('log');
+      var statusEl = document.getElementById('status');
+      function log(msg) {
+        var t = new Date().toLocaleTimeString();
+        logEl.innerHTML += '<div><span class="t">' + t + '</span> ' + msg + '</div>';
+        logEl.scrollTop = logEl.scrollHeight;
+      }
+      function setStatus(s) {
+        statusEl.textContent = s;
+      }
+
+      var SAMPLE_VAST =
+        'https://pubads.g.doubleclick.net/gampad/ads?iu=/21775744923/external/single_ad_samples&sz=640x480&cust_params=sample_ct%3Dlinear&ciu_szs=300x250%2C728x90&gdfp_req=1&output=vast&unviewed_position_start=1&env=vp&correlator=';
+
+      var adUnit = {
+        code: 'ad-unit-1',
+        mediaTypes: {
+          video: {
+            context: 'outstream',
+            playerSize: [300, 250],
+            mimes: ['video/mp4', 'video/webm', 'video/ogg'],
+            protocols: [2, 3, 5, 6, 7, 8],
+            api: [2],
+          },
+        },
+        bids: [{ bidder: 'michao', params: { placement: 'inbanner', site: 1, test: true } }],
+        renderer: {
+          // Production: point this at the published CDN build and Prebid will
+          // load it before calling render():
+          //   url: 'https://cdn.rediads.com/helper/rediads-renderer.umd.cjs',
+          render: function (bid) {
+            log('renderer.render() called → RediadsRenderer.renderOutstream()');
+            window.RediadsRenderer.renderOutstream(
+              bid,
+              document.getElementById(bid.adUnitCode),
+              {
+                // Use true so the demo autostarts. Production default is
+                // 'viewable' (plays once the slot is 50% on screen).
+                autoplay: true,
+                muted: true,
+                onEvent: function (e) {
+                  log('player event: <strong>' + e.type + '</strong>');
+                  if (e.type === 'loaded') setStatus('ad loaded, starting…');
+                  if (e.type === 'start') setStatus('ad playing ✓');
+                  if (e.type === 'error') setStatus('player error: ' + (e.message || ''));
+                },
+              }
+            );
+          },
+        },
+      };
+
+      function runAuction() {
+        document.getElementById('ad-unit-1').innerHTML = '';
+        setStatus('running auction…');
+        log('requestBids()…');
+        pbjs.requestBids({
+          adUnitCodes: ['ad-unit-1'],
+          timeout: 5000,
+          bidsBackHandler: function () {
+            var bids = pbjs.getHighestCpmBids('ad-unit-1');
+            if (!bids.length) {
+              setStatus('no bid');
+              log('no winning bid');
+              return;
+            }
+            log('winning bid: cpm=' + bids[0].cpm + ' adId=' + bids[0].adId);
+            setStatus('rendering…');
+            pbjs.renderAd(document, bids[0].adId);
+          },
+        });
+      }
+
+      pbjs.que.push(function () {
+        pbjs.setConfig({
+          debugging: {
+            enabled: true,
+            intercept: [
+              {
+                when: { bidder: 'michao' },
+                then: { cpm: 10, mediaType: 'video', vastUrl: SAMPLE_VAST },
+              },
+            ],
+          },
+        });
+        pbjs.addAdUnits(adUnit);
+        log('Prebid ready, ad unit added');
+        runAuction();
+      });
+
+      document.getElementById('rerun').addEventListener('click', function () {
+        if (window.pbjs && pbjs.requestBids) runAuction();
+      });
+    </script>
+  </body>
+</html>

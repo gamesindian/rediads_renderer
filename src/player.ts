@@ -34,7 +34,7 @@ const DEFAULT_CONFIG: Required<
     'adText' | 'autoplay' | 'muted' | 'showControls' | 'showCloseButton' | 'skipOffset' | 'imaSdkUrl'
   >
 > = {
-  adText: 'Advertisement',
+  adText: 'Ad',
   autoplay: 'viewable',
   muted: true,
   showControls: true,
@@ -107,6 +107,7 @@ export function renderOutstream(
   const playerId = createUniqueId('rediads-player', bid.adId);
 
   let destroyed = false;
+  let adDisplayContainer: ImaAdDisplayContainer | null = null;
   let adsLoader: ImaAdsLoader | null = null;
   let adDisplayContainer: ImaAdDisplayContainer | null = null;
   let adsManager: ImaAdsManager | null = null;
@@ -164,6 +165,13 @@ export function renderOutstream(
     }
     adsLoader = null;
 
+    try {
+      adDisplayContainer?.destroy();
+    } catch {
+      // ignore destroy errors
+    }
+    adDisplayContainer = null;
+
     chrome.video.src = '';
     chrome.video.load();
     fire('destroyed');
@@ -176,12 +184,21 @@ export function renderOutstream(
       : ima.ViewMode.NORMAL;
   };
 
+  // Size the IMA ad to the player's actual rendered box so the ad always
+  // exactly fills the player, regardless of how player dimensions were
+  // resolved (configured size vs. container fallback).
+  const getAdSize = (): { width: number; height: number } => {
+    const w = chrome.root.clientWidth || dimensions.width;
+    const h = chrome.root.clientHeight || dimensions.height;
+    return { width: Math.max(1, Math.round(w)), height: Math.max(1, Math.round(h)) };
+  };
+
   const resizeAds = () => {
     if (!adsManager) return;
-    const { width, height } = resolveDimensions(bid, target);
+    const { width, height } = getAdSize();
     adsManager.resize(width, height, getViewMode());
-    chrome.root.style.setProperty('--rediads-width', `${width}px`);
-    chrome.root.style.setProperty('--rediads-height', `${height}px`);
+    target.style.setProperty('--rediads-width', `${width}px`);
+    target.style.setProperty('--rediads-height', `${height}px`);
   };
 
   const startPlayback = () => {
@@ -206,10 +223,12 @@ export function renderOutstream(
       if (!adsManager) return;
       if (chrome.root.classList.contains('rediads-outstream--playing')) {
         adsManager.pause();
+        setPlayingState(chrome, false);
       } else if (!started) {
         startPlayback();
       } else {
         adsManager.resume();
+        setPlayingState(chrome, true);
       }
     });
 
@@ -293,7 +312,7 @@ export function renderOutstream(
     setLoading(chrome, false);
     fire('loaded');
 
-    const { width, height } = resolveDimensions(bid, target);
+    const { width, height } = getAdSize();
     adsManager.init(width, height, ima.ViewMode.NORMAL);
     adsManager.setVolume(mergedConfig.muted ? 0 : 1);
 
@@ -314,6 +333,9 @@ export function renderOutstream(
         adsManager!.addEventListener(imaEvent, () => fire(eventType));
       }
     });
+
+    adsManager.addEventListener(adEventTypes.PAUSED, () => setPlayingState(chrome, false));
+    adsManager.addEventListener(adEventTypes.RESUMED, () => setPlayingState(chrome, true));
 
     adsManager.addEventListener(adEventTypes.STARTED, (event: unknown) => {
       const adEvent = event as ImaAdStartedEvent;
@@ -372,7 +394,7 @@ export function renderOutstream(
 
   const requestAds = async () => {
     const ima = getIma();
-    const { width, height } = resolveDimensions(bid, target);
+    const { width, height } = getAdSize();
     const request = new ima.AdsRequest();
 
     request.linearAdSlotWidth = width;

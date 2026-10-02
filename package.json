@@ -12,7 +12,10 @@
       "import": "./dist/rediads-renderer.js",
       "require": "./dist/rediads-renderer.umd.cjs"
     },
-    "./style.css": "./dist/rediads-renderer.css"
+    "./style.css": "./dist/rediads-renderer.css",
+    "./native": {
+      "default": "./dist/rediads-native-renderer.js"
+    }
   },
   "files": [
     "dist"
@@ -20,9 +23,10 @@
   "scripts": {
     "dev": "vite",
     "dev:test": "vite --open /test.html",
-    "build": "tsc && vite build",
+    "build": "tsc && vite build && vite build --config vite.native.config.ts",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "deploy": "node scripts/deploy-r2.mjs"
   },
   "keywords": [
     "prebid",
@@ -33,7 +37,8 @@
     "ima-sdk",
     "vast",
     "header-bidding",
-    "renderer"
+    "renderer",
+    "native"
   ],
   "license": "MIT",
   "repository": {
@@ -41,6 +46,7 @@
     "url": "https://github.com/gamesindian/rediads_renderer.git"
   },
   "devDependencies": {
+    "@aws-sdk/client-s3": "^3.1145.0",
     "typescript": "^5.8.3",
     "vite": "^6.3.5",
     "vite-plugin-dts": "^4.5.4"
