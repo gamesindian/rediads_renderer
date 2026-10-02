@@ -150,7 +150,8 @@ On push to `main` (when build inputs change), GitHub Actions runs `.github/workf
 | `R2_SECRET_ACCESS_KEY` | R2 API token secret |
 | `R2_BUCKET` | Bucket name (e.g. `cdnrediads`) |
 | `CLOUDFLARE_ZONE_ID` | Zone for `cdn.rediads.com` |
-| `CLOUDFLARE_API_TOKEN` | Token with **Cache Purge** for that zone |
+| `CLOUDFLARE_API_TOKEN` | API token with **Cache Purge**, or Global API Key if `CLOUDFLARE_AUTH_EMAIL` is set |
+| `CLOUDFLARE_AUTH_EMAIL` | Optional; use with Global API Key (same as `rediwrap`) |
 | `CDN_BASE_URL` | Optional; default `https://cdn.rediads.com` |
 
 Local deploy: copy `.env.example` → `.env`, then `npm run build && npm run deploy`.

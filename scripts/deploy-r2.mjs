@@ -128,14 +128,20 @@ for (const [file, key] of mapFiles) {
 const purgeUrls = artifacts.map((a) => `${cdnBase}${a.cdnPath}`);
 console.log(`Purging Cloudflare cache for ${purgeUrls.length} URL(s)...`);
 
+/** API token (Bearer) or Global API Key (X-Auth-Email + X-Auth-Key), same as rediwrap. */
+const purgeHeaders = { 'Content-Type': 'application/json' };
+if (env.CLOUDFLARE_AUTH_EMAIL) {
+  purgeHeaders['X-Auth-Email'] = env.CLOUDFLARE_AUTH_EMAIL;
+  purgeHeaders['X-Auth-Key'] = env.CLOUDFLARE_API_TOKEN;
+} else {
+  purgeHeaders.Authorization = `Bearer ${env.CLOUDFLARE_API_TOKEN}`;
+}
+
 const purgeResponse = await fetch(
   `https://api.cloudflare.com/client/v4/zones/${env.CLOUDFLARE_ZONE_ID}/purge_cache`,
   {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${env.CLOUDFLARE_API_TOKEN}`,
-    },
+    headers: purgeHeaders,
     body: JSON.stringify({ files: purgeUrls }),
   },
 );
